@@ -19,6 +19,8 @@ derive gEq T23
 derive gEq RT23
 derive gEq Maybe
 derive gEq KeyVal
+
+
        
 Start = (and (flatten allTests), allTests)
 	where
@@ -32,6 +34,8 @@ Start = (and (flatten allTests), allTests)
 			, test_t23_insert
 			, test_fold
 		//	, test_toList
+		  , test_KV
+		//  , test_toJSON
 			]
 //1
 EmptyInt :: T23 Int
@@ -141,25 +145,15 @@ test_t23_empty =
 t23_lookup :: a (T23 a) -> Maybe a | Eq a & Ord a
 t23_lookup x Empty = Nothing
 t23_lookup x (N2 a i b)
-	| i == x = Just x
-	| x < i  
-		| t23_lookup x a == Just x = Just x
-		| otherwise = Nothing
-	| otherwise
-		| t23_lookup x b == Just x = Just x
-		| otherwise = Nothing
+	| i == x = Just i
+	| x < i = t23_lookup x a  
+	| otherwise = t23_lookup x b
 t23_lookup x (N3 a i b j c)
-	| i == x = Just x
-	| x < i 
-		| t23_lookup x a == Just x = Just x
-		| otherwise = Nothing
-	| j == x = Just x
-	| x < j
-		| t23_lookup x b == Just x = Just x
-		| otherwise = Nothing
-	| otherwise
-		| t23_lookup x c == Just x = Just x
-		| otherwise = Nothing
+	| i == x = Just i
+	| x < i = t23_lookup x a
+	| j == x = Just j
+	| x < j = t23_lookup x b
+	| otherwise = t23_lookup x c
 //4_test
 test_t23_lookup :: [Bool]
 test_t23_lookup =
@@ -314,7 +308,7 @@ instance Foldable T23
 where
 	fold :: (a b->b) b (T23 a) -> b
 	fold op r Empty = r
-	fold op r (N2 a i b) = fold op (op i (fold op r b)) a
+	fold op r (N2 a i b) = fold op ( fold op (fold op r b) [i] ) a
 	fold op r (N3 a i b j c) = fold op (op i (fold op (op j (fold op r c)) b)) a
 
 //8_test
@@ -328,26 +322,11 @@ test_fold =
 
 
 //9
-//toList :: (t a) -> [a] | Foldable t
-/*toList a = fold push_back [] a
-
-class Appender a b
-where
-	push_back :: [Int] a -> b
+/*toList :: (t a) -> [a] | Foldable t
+toList a = fold push_back [] a
 	
-instance Appender Int [Int]
-where
-	push_back :: [Int] Int -> [Int]
-	push_back list a = [a:list]
-	
-instance Appender [Int] [Int]
-where
-	push_back :: [Int] [Int] -> [Int]
-	push_back list1 list2 = list1 ++ list2
-	*/
-	
-	
-	
+push_back :: [a] -> [a]
+push_back */
 //9_test
 /*test_toList :: [Bool]
 test_toList = 
@@ -357,22 +336,45 @@ test_toList =
 	, toList [14,15,25,35,40,48,49,51,54,55,59,60,75,80,82]
   		==
   	  [14,15,25,35,40,48,49,51,54,55,59,60,75,80,82]
-  	]*/
-
+ 	]*/
 
 
 //10
-/*instance == (KeyVal k v)
+instance == (KeyVal k v) | == k 
 where
-//	(==) :: (KeyVal k v) (KeyVal k v) -> Bool
 	(==) (KV k1 v1) (KV k2 v2) = k1 == k2
-	*/
-/*instance < KeyVal
+	
+instance < (KeyVal k v) | < k
 where
-	(<) :: (KeyVal k v) (KeyVal k v) -> Bool
-	(<) (KV k1 v1) (KV k2 v2) = (k1 < k2)
-	*/
+	(<) (KV k1 v1) (KV k2 v2) = k1 < k2
+	
 //10_test
+test_KV :: [Bool]
+test_KV = 
+	[ t23_lookup (KV 14 "ünnëcëssäry ümläüts") (N2 (N3 (N2 Empty (KV 14 "test14") Empty) (KV 15 "test15") (N2 Empty (KV 25 "test25") Empty) (KV 35 "test35") (N3 Empty (KV 40 "test40") Empty (KV 48 "test48") Empty)) (KV 51 "test51") (N3 (N2 Empty (KV 54 "test54") Empty)
+			 (KV 55 "test55") (N2 Empty (KV 59 "test59") Empty) (KV 60 "test60") (N2 Empty (KV 75 "test75") Empty)))
+		=== 
+  	  Just (KV 14 "test14")
+	, t23_lookup (KV 14 "") (N2 (N3 (N2 Empty (KV 14 "test14") Empty) (KV 15 "test15") (N2 Empty (KV 25 "test25") Empty) (KV 35 "test35") (N3 Empty (KV 40 "test40") Empty (KV 48 "test48") Empty)) (KV 51 "test51") (N3 (N2 Empty (KV 54 "test54") Empty) (KV 55 "test55")
+			 (N2 Empty (KV 59 "test59") Empty) (KV 60 "test60") (N2 Empty (KV 75 "test75") Empty)))
+ 	 	===
+ 	  Just (KV 14 "test14")
+	, t23_lookup (KV 1 "") (N2 (N3 (N2 Empty (KV 14 "test14") Empty) (KV 15 "test15") (N2 Empty (KV 25 "test25") Empty) (KV 35 "test35") (N3 Empty (KV 40 "test40") Empty (KV 48 "test48") Empty)) (KV 51 "test51") (N3 (N2 Empty (KV 54 "test54") Empty) (KV 55 "test55") 
+			(N2 Empty (KV 59 "test59") Empty) (KV 60 "test60") (N2 Empty (KV 75 "test75") Empty)))
+  		===
+  	  Nothing
+	, t23_lookup (KV 1 (0, "", False)) (t23_insert (KV 1 (10, "Mötley Crüe", True)) t23_empty)
+  		===
+  	  Just (KV 1 (10, "Mötley Crüe", True))
+	, t23_lookup (KV 2 (0, "", False)) (t23_insert (KV 1 (10, "Mötley Crüe", True)) t23_empty)
+  		===
+  	  Nothing
+	, t23_insert (KV 11 "test11") (N2 (N3 (N2 Empty (KV 14 "test14") Empty) (KV 15 "test15") (N2 Empty (KV 25 "test25") Empty) (KV 35 "test35") (N3 Empty (KV 40 "test40") Empty (KV 48 "test48") Empty)) (KV 51 "test51") (N3 (N2 Empty (KV 54 "test54") Empty) (KV 55 "test55")
+			 (N2 Empty (KV 59 "test59") Empty) (KV 60 "test60") (N2 Empty (KV 75 "test75") Empty)))
+	  	===
+	  N2 (N3 (N3 Empty (KV 11 "test11") Empty (KV 14 "test14") Empty) (KV 15 "test15") (N2 Empty (KV 25 "test25") Empty) (KV 35 "test35") (N3 Empty (KV 40 "test40") Empty (KV 48 "test48") Empty)) (KV 51 "test51") (N3 (N2 Empty (KV 54 "test54") Empty) (KV 55 "test55") (N2 Empty (KV 59 "test59") Empty) (KV 60 "test60") (N2 Empty (KV 75 "test75") Empty)) 
+	]
+
 
 //11
 generic gJSON a :: a -> String
@@ -390,15 +392,54 @@ gJSON {|OBJECT of o|} fx (OBJECT x) = (toString '{') +++ (toString '"') +++ "typ
 
 derive gJSON KeyVal
 derive gJSON T23
+
 //11_test
 
+
 //12
-EmptyChar :: T23 Char
+/*EmptyChar :: T23 Char
 EmptyChar = Empty
 
 toJSON :: a -> String | gJSON{|*|} a
-toJSON a = ""
+toJSON a = ""*/
+
 //12_test
+/*
+test_toJSON :: [Bool]
+test_toJSON = 
+	[ toJSON (N2 Empty 10 Empty)
+  		==
+	  "{\"type\":\"T23\",\"value\":{\"constructor\":\"N2\",\"params\":[{\"type\":\"T23\",\"value\":"
+	  +++ "{\"constructor\":\"Empty\",\"params\":[]}},{\"type\":\"int\",\"value\":10},"
+	  +++ "{\"type\":\"T23\",\"value\":{\"constructor\":\"Empty\",\"params\":[]}}]}}"
+	, toJSON (N3 Empty "aa" Empty "bb" Empty)
+  		==
+	  "{\"type\":\"T23\",\"value\":{\"constructor\":\"N3\",\"params\":[{\"type\":\"T23\",\"value\":"
+	  +++ "{\"constructor\":\"Empty\",\"params\":[]}},{\"type\":\"string\",\"value\":\"aa\"},{\"type\":"
+	  +++ "\"T23\",\"value\":{\"constructor\":\"Empty\",\"params\":[]}},{\"type\":\"string\",\"value\":"
+	  +++ "\"bb\"},{\"type\":\"T23\",\"value\":{\"constructor\":\"Empty\",\"params\":[]}}]}}"
+	, toJSON EmptyChar
+  		==
+	  "{\"type\":\"T23\",\"value\":{\"constructor\":\"Empty\",\"params\":[]}}"
+	, toJSON (N3 (N2 Empty (KV 54 "test54") Empty) (KV 55 "test55") (N2 Empty (KV 59 "test59") Empty) (KV 60 "test60") (N2 Empty (KV 75 "test75") Empty))
+  		==
+	  "{\"type\":\"T23\",\"value\":{\"constructor\":\"N3\",\"params\":[{\"type\":\"T23\",\"value\":"
+	  +++ "{\"constructor\":\"N2\",\"params\":[{\"type\":\"T23\",\"value\":{\"constructor\":\"Empty\","
+	  +++ "\"params\":[]}},{\"type\":\"KeyVal\",\"value\":{\"constructor\":\"KV\",\"params\":[{\"type\":"
+	  +++ "\"int\",\"value\":54},{\"type\":\"string\",\"value\":\"test54\"}]}},{\"type\":\"T23\",\"value\":"
+	  +++ "{\"constructor\":\"Empty\",\"params\":[]}}]}},{\"type\":\"KeyVal\",\"value\":{\"constructor\":"
+	  +++ "\"KV\",\"params\":[{\"type\":\"int\",\"value\":55},{\"type\":\"string\",\"value\":\"test55\"}]}},"
+	  +++ "{\"type\":\"T23\",\"value\":{\"constructor\":\"N2\",\"params\":[{\"type\":\"T23\",\"value\":"
+	  +++ "{\"constructor\":\"Empty\",\"params\":[]}},{\"type\":\"KeyVal\",\"value\":{\"constructor\":"
+	  +++ "\"KV\",\"params\":[{\"type\":\"int\",\"value\":59},{\"type\":\"string\",\"value\":\"test59\"}]}},"
+	  +++ "{\"type\":\"T23\",\"value\":{\"constructor\":\"Empty\",\"params\":[]}}]}},{\"type\":\"KeyVal\","
+	  +++ "\"value\":{\"constructor\":\"KV\",\"params\":[{\"type\":\"int\",\"value\":60},{\"type\":\"string\","
+	  +++ "\"value\":\"test60\"}]}},{\"type\":\"T23\",\"value\":{\"constructor\":\"N2\",\"params\":[{\"type\":"
+	  +++ "\"T23\",\"value\":{\"constructor\":\"Empty\",\"params\":[]}},{\"type\":\"KeyVal\",\"value\":"
+	  +++ "{\"constructor\":\"KV\",\"params\":[{\"type\":\"int\",\"value\":75},{\"type\":\"string\",\"value\":"
+	  +++ "\"test75\"}]}},{\"type\":\"T23\",\"value\":{\"constructor\":\"Empty\",\"params\":[]}}]}}]}}"
+	]
+*/
 
 
 
