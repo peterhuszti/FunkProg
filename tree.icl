@@ -35,7 +35,7 @@ Start = (and (flatten allTests), allTests)
 			, test_fold
 		//	, test_toList
 		  , test_KV
-		//  , test_toJSON
+		  , test_toJSON
 			]
 //1
 EmptyInt :: T23 Int
@@ -378,33 +378,33 @@ test_KV =
 
 //11
 generic gJSON a :: a -> String
-gJSON {|Char|} x = (toString '{') +++ (toString '"') +++ "type" +++ (toString '"') +++ (toString ':') +++ (toString '"') +++ "char" +++ (toString '"') +++ (toString ',') +++ (toString '"') +++ "value" +++ (toString '"') +++ (toString ':') +++ (toString x) +++ (toString '}');
-gJSON {|Bool|} x = (toString '{') +++ (toString '"') +++ "type" +++ (toString '"') +++ (toString ':') +++ (toString '"') +++ "bool" +++ (toString '"') +++ (toString ',') +++ (toString '"') +++ "value" +++ (toString '"') +++ (toString ':') +++ (toString x) +++ (toString '}');
-gJSON {|String|} x = (toString '{') +++ (toString '"') +++ "type" +++ (toString '"') +++ (toString ':') +++ (toString '"') +++ "string" +++ (toString '"') +++ (toString ',') +++ (toString '"') +++ "value" +++ (toString '"') +++ (toString ':') +++ x +++ (toString '}');
-gJSON {|Real|} x = (toString '{') +++ (toString '"') +++ "type" +++ (toString '"') +++ (toString ':') +++ (toString '"') +++ "real" +++ (toString '"') +++ (toString ',') +++ (toString '"') +++ "value" +++ (toString '"') +++ (toString ':') +++ (toString x) +++ (toString '}');
-gJSON {|Int|} x = (toString '{') +++ (toString '"') +++ "type" +++ (toString '"') +++ (toString ':') +++ (toString '"') +++ "int" +++ (toString '"') +++ (toString ',') +++ (toString '"') +++ "value" +++ (toString '"') +++ (toString ':') +++ (toString x) +++ (toString '}');
+gJSON {|Char|} x = "{\"type\":\"char\",\"value\":\"" +++ (toString x) +++ "\"}"
+gJSON {|Bool|} x = "{\"type\":\"bool\",\"value\":" +++ (toString x) +++ "}"
+gJSON {|String|} x = "{\"type\":\"string\",\"value\":\"" +++ x +++ "\"}"
+gJSON {|Real|} x = "{\"type\":\"real\",\"value\":" +++ (toString x) +++ "}"
+gJSON {|Int|} x = "{\"type\":\"int\",\"value\":" +++ (toString x) +++ "}"
 gJSON {|UNIT|} x = ""
-gJSON {|CONS of c|} fx (CONS x) = (toString '{') +++ (toString '"') +++ "constructor" +++ (toString '"') +++ (toString ':') +++ (toString '"') +++ c.gcd_name +++ (toString '"') +++ (toString ',') +++ (toString '"') +++ "params" +++ (toString '"') +++ (toString ':') +++ (toString '[') +++ fx x +++ (toString ']') +++ (toString '}');
-gJSON {|EITHER|} xl xr (LEFT x) = xl x 
+gJSON {|CONS of c|} fx (CONS x) = "{\"constructor\":\"" +++ c.gcd_name +++ "\",\"params\":[" +++ fx x +++ "]}"
+gJSON {|EITHER|} xl xr (LEFT x) = xl x
 gJSON {|EITHER|} xl xr (RIGHT x) = xr x
 gJSON {|PAIR|} xf xs (PAIR x y) = xf x +++ (toString ',') +++ xs y
-gJSON {|OBJECT of o|} fx (OBJECT x) = (toString '{') +++ (toString '"') +++ "type" +++ (toString '"') +++ (toString ':') +++ (toString '"') +++ o.gtd_name +++ (toString '"') +++ (toString ',') +++ (toString '"') +++ "value" +++ (toString '"') +++ (toString ':') +++ fx x +++ (toString '}');
+gJSON {|OBJECT of o|} fx (OBJECT x) = "{\"type\":\"" +++ o.gtd_name +++ "\",\"value\":" +++ fx x +++ "}"
 
 derive gJSON KeyVal
 derive gJSON T23
 
 //11_test
-
+//
 
 //12
-/*EmptyChar :: T23 Char
+EmptyChar :: T23 Char
 EmptyChar = Empty
 
 toJSON :: a -> String | gJSON{|*|} a
-toJSON a = ""*/
+toJSON a = gJSON{|*|} a
 
 //12_test
-/*
+
 test_toJSON :: [Bool]
 test_toJSON = 
 	[ toJSON (N2 Empty 10 Empty)
@@ -439,7 +439,7 @@ test_toJSON =
 	  +++ "{\"constructor\":\"KV\",\"params\":[{\"type\":\"int\",\"value\":75},{\"type\":\"string\",\"value\":"
 	  +++ "\"test75\"}]}},{\"type\":\"T23\",\"value\":{\"constructor\":\"Empty\",\"params\":[]}}]}}]}}"
 	]
-*/
+
 
 
 
