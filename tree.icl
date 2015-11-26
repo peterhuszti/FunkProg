@@ -5,13 +5,11 @@ import StdEnv, StdLib, GenEq
 :: T23 a = Empty
          | N2 (T23 a) a (T23 a)
          | N3 (T23 a) a (T23 a) a (T23 a)
-         | NERR
          
 :: RT23 a = REmpty
           | RN2 (RT23 a) a (RT23 a)
           | RN3 (RT23 a) a (RT23 a) a (RT23 a)
           | RN4 (RT23 a) a (RT23 a) a (RT23 a) a (RT23 a)
-          | RNERR
           
 :: KeyVal k v = KV k v 
 
@@ -19,8 +17,6 @@ derive gEq T23
 derive gEq RT23
 derive gEq Maybe
 derive gEq KeyVal
-
-
        
 Start = (and (flatten allTests), allTests)
 	where
@@ -33,10 +29,10 @@ Start = (and (flatten allTests), allTests)
 			, test_rt23_insert
 			, test_t23_insert
 			, test_fold
-		//	, test_toList
-		  , test_KV
-		  , test_toJSON
-			]
+			, test_toList
+		    , test_KV
+		    , test_toJSON
+		  	]
 //1
 EmptyInt :: T23 Int
 EmptyInt = Empty
@@ -63,55 +59,23 @@ test_t23_to_rt23 =
 	
 	  
 //2
-/*
-	rt23_to_t23_rn4_err_rec is recursively called to each node, and it will returns: (itself, True is there is RN4 
-		somewhere below it / False otherwise)
-	
-	rt23_to_t23_rn4_err_main will return the original tree, if there is no RN4 in it, and it will return RNERR 
-		otherwise	
-	
-	rt23_to_t23_converter converts the tree to the given form, but if there is RN4 in the tree, it will return NERR
-	
-	rt23_to_t23_helper and rt23_to_t23_helper2 will decide based upon the results above, if we can actually do the
-		conversion
-
-*/
 rt23_to_t23 :: (RT23 a) -> Maybe (T23 a)
-rt23_to_t23 a = rt23_to_t23_helper2 (rt23_to_t23_helper a)
+rt23_to_t23 a
+	| isThereR4 a = Nothing
+	| otherwise = Just (rt23_to_t23_converter a)
 
-rt23_to_t23_helper2 :: (T23 a) -> Maybe (T23 a)
-rt23_to_t23_helper2 NERR = Nothing
-rt23_to_t23_helper2 a = Just a
-
-rt23_to_t23_helper :: (RT23 a) -> T23 a
-rt23_to_t23_helper a = rt23_to_t23_converter (rt23_to_t23_rn4_err_main (rt23_to_t23_rn4_err_rec a))
+isThereR4 :: (RT23 a) -> Bool
+isThereR4 REmpty = False
+isThereR4 (RN2 a i b) = (isThereR4 a) || (isThereR4 b)
+isThereR4 (RN3 a i b j c) = (isThereR4 a) || (isThereR4 b) || (isThereR4 c)
+isThereR4 (RN4 a i b j c k d) = True
 
 rt23_to_t23_converter :: (RT23 a) -> T23 a
-rt23_to_t23_converter RNERR = NERR
 rt23_to_t23_converter (RN2 REmpty i REmpty) = N2 Empty i Empty
 rt23_to_t23_converter (RN3 REmpty i REmpty j REmpty) = N3 Empty i Empty j Empty
 rt23_to_t23_converter (RN2 a i b) = N2 (rt23_to_t23_converter a) i (rt23_to_t23_converter b)
 rt23_to_t23_converter (RN3 a i b j c) = N3 (rt23_to_t23_converter a) i (rt23_to_t23_converter b) j (rt23_to_t23_converter c) 
-rt23_to_t23_converter a = Empty
-
-rt23_to_t23_rn4_err_main :: (RT23 a, Bool) -> RT23 a
-rt23_to_t23_rn4_err_main s
-	| snd(s) == True = RNERR
-	| otherwise = fst(s)
-
-rt23_to_t23_rn4_err_rec :: (RT23 a) -> (RT23 a, Bool)
-rt23_to_t23_rn4_err_rec REmpty = (REmpty, False)
-rt23_to_t23_rn4_err_rec RNERR = (RNERR, True)
-rt23_to_t23_rn4_err_rec (RN4 a i b j c k d) = (RNERR, True)
-rt23_to_t23_rn4_err_rec (RN2 RNERR i b) = (RNERR, True)
-rt23_to_t23_rn4_err_rec (RN2 a i RNERR) = (RNERR, True)
-rt23_to_t23_rn4_err_rec (RN3 RNERR i b j c) = (RNERR, True)
-rt23_to_t23_rn4_err_rec (RN3 a i RNERR j c) = (RNERR, True)
-rt23_to_t23_rn4_err_rec (RN3 a i b j RNERR) = (RNERR, True)
-rt23_to_t23_rn4_err_rec (RN2 REmpty i REmpty) = (RN2 REmpty i REmpty, False)
-rt23_to_t23_rn4_err_rec (RN3 REmpty i REmpty j REmpty) = (RN3 REmpty i REmpty j REmpty, False)
-rt23_to_t23_rn4_err_rec (RN2 a i b) = (RN2 a i b, snd(rt23_to_t23_rn4_err_rec a) || snd(rt23_to_t23_rn4_err_rec b) )
-rt23_to_t23_rn4_err_rec (RN3 a i b j c) = (RN3 a i b j c, snd(rt23_to_t23_rn4_err_rec a) || snd(rt23_to_t23_rn4_err_rec b) || snd(rt23_to_t23_rn4_err_rec c))
+rt23_to_t23_converter REmpty = Empty
 //2_test
 test_rt23_to_t23 :: [Bool]
 test_rt23_to_t23 = 
@@ -170,12 +134,8 @@ test_t23_lookup =
 //5
 rt23_propagateSplit :: (RT23 a) -> RT23 a
 rt23_propagateSplit a
-	| rt23_RN4_exist (rt23_to_t23_rn4_err_main (rt23_to_t23_rn4_err_rec a)) = rt23_propagateSplit_splitter(a)
+	| isThereR4 a = rt23_propagateSplit_splitter(a)
 	| otherwise = a
-
-rt23_RN4_exist :: (RT23 a) -> Bool
-rt23_RN4_exist RNERR = True
-rt23_RN4_exist a = False
 
 rt23_propagateSplit_splitter :: (RT23 a) -> RT23 a
 rt23_propagateSplit_splitter (RN4 a i b j c k d) = RN2 (RN2 a i b) j (RN2 c k d)
@@ -207,7 +167,7 @@ test_rt23_propagateSplit =
 rt23_insert :: a (RT23 a) -> Maybe (RT23 a) | Eq a & Ord a
 rt23_insert x REmpty = Just (RN2 REmpty x REmpty)
 rt23_insert x a
-	| rt23_RN4_exist (rt23_to_t23_rn4_err_main (rt23_to_t23_rn4_err_rec a)) = Nothing
+	| isThereR4 a = Nothing
 	| rt23_node_already_in x a = Just a
 	| otherwise = Just (rt23_normalize (rt23_inserter x a))
 	
@@ -226,7 +186,7 @@ rt23_node_already_in x (RN3 a i b j c)
 	
 rt23_normalize :: (RT23 a) -> RT23 a | Eq a & Ord a
 rt23_normalize a
-	| rt23_RN4_exist (rt23_to_t23_rn4_err_main (rt23_to_t23_rn4_err_rec a)) = rt23_normalize (rt23_propagateSplit_splitter(a))
+	| isThereR4 a = rt23_normalize (rt23_propagateSplit_splitter(a))
 	| otherwise = a
 	
 rt23_inserter :: a (RT23 a) -> RT23 a | Eq a & Ord a
@@ -309,12 +269,13 @@ where
 	fold :: (a b->b) b (T23 a) -> b
 	fold op r Empty = r
 	fold op r (N2 a i b) = fold op ( fold op (fold op r b) [i] ) a
-	fold op r (N3 a i b j c) = fold op (op i (fold op (op j (fold op r c)) b)) a
+	fold op r (N3 a i b j c) = fold op (fold op(fold op (fold op (fold op r c) [j] ) b) [i] ) a
 
 //8_test
 test_fold :: [Bool]
 test_fold = 
-	[ fold (+) 12 Empty == 12
+	[ fold (+) 0 [2..5] == 14
+	, fold (+) 12 Empty == 12
 	, fold (+) 12 (N2 Empty 22 Empty) == 34
 	, fold (+) 0 (N2 (N3 Empty 10 Empty 20 Empty) 30 (N3 Empty 40 Empty 50 Empty)) == 150
 	, fold (\x len -> len + 1) 0 (N2 (N3 Empty 10 Empty 20 Empty) 30 (N3 Empty 40 Empty 50 Empty)) == 5
@@ -322,13 +283,14 @@ test_fold =
 
 
 //9
-/*toList :: (t a) -> [a] | Foldable t
-toList a = fold push_back [] a
-	
-push_back :: [a] -> [a]
-push_back */
+toList :: (t a) -> [a] | Foldable t
+toList t = fold seged [] t
+
+seged :: x [x] -> [x]
+seged a b = (++) [a] b
+
 //9_test
-/*test_toList :: [Bool]
+test_toList :: [Bool]
 test_toList = 
 	[ toList (N2 (N2 (N2 (N2 Empty 14 Empty) 15 (N2 Empty 25 Empty)) 35 (N2 (N2 Empty 40 Empty) 48 (N2 Empty 49 Empty))) 51 (N2 (N2 (N2 Empty 54 Empty) 55 (N2 Empty 59 Empty)) 60 (N2 (N2 Empty 75 Empty) 80 (N2 Empty 82 Empty))))
   		==
@@ -336,7 +298,7 @@ test_toList =
 	, toList [14,15,25,35,40,48,49,51,54,55,59,60,75,80,82]
   		==
   	  [14,15,25,35,40,48,49,51,54,55,59,60,75,80,82]
- 	]*/
+ 	]
 
 
 //10
@@ -439,35 +401,3 @@ test_toJSON =
 	  +++ "{\"constructor\":\"KV\",\"params\":[{\"type\":\"int\",\"value\":75},{\"type\":\"string\",\"value\":"
 	  +++ "\"test75\"}]}},{\"type\":\"T23\",\"value\":{\"constructor\":\"Empty\",\"params\":[]}}]}}]}}"
 	]
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
