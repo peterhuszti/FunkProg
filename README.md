@@ -1,1 +1,1 @@
-Funktional programming in CLEAN 
+Funktional programming in CLEAN.
