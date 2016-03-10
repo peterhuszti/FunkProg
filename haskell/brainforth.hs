@@ -63,9 +63,27 @@ type BFEnv = Map Char BFSequence
 sq0 :: Char
 sq0 = '*'
 
+convertCharToBFSymbol :: Char -> BFSymbol
+convertCharToBFSymbol c
+  | c == '+' = Inc
+  | c == '-' = Dec
+  | c == '>' = MemRight
+  | c == '<' = MemLeft
+  | c == ',' = In
+  | c == '.' = Out
+  | c == '[' = BrktOpen
+  | c == ']' = BrktClose
+  | c == ':' = StartSeq
+  | c == ';' = EndSeq
+  | otherwise = SeqId c
+
 parseProgram :: String -> BFEnv
-parseProgram str
-  | str == "" = M.empty
+parseProgram str = M.empty
+
+-- String = [Char]
+-- vegigmappelek a listan a konvert fuggvennyel
+-- ebbol az eredmeny listabol csinalok vektort
+
   
   
 test_parseProgram =
