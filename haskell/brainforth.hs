@@ -45,10 +45,10 @@ test_BFMem_Tape =
   , getVal   t { tIx = 3 }      ==  3
   , putVal   t             451  ==  t { tVec = V.fromList [451, 1, 2, 3] }
   , putVal   t { tIx = 3 } 451  ==  T { tVec = V.fromList [0, 1, 2, 451], tIx = 3 }
-  , memRight  t                  ==  t { tIx = 1 }
-  , memRight  t { tIx = 3 }      ==  t { tIx = 0 }
-  , memLeft t { tIx = 3 }      ==  t { tIx = 2 }
-  , memLeft t                  ==  t { tIx = 3 }
+  , memRight  t                 ==  t { tIx = 1 }
+  , memRight  t { tIx = 3 }     ==  t { tIx = 0 }
+  , memLeft t { tIx = 3 }       ==  t { tIx = 2 }
+  , memLeft t                   ==  t { tIx = 3 }
   ]
   where t = T { tVec = V.fromList [0, 1, 2, 3], tIx = 0 }
   
@@ -80,12 +80,12 @@ convertCharToBFSymbol c
 convertStringToTokens :: String -> BFSequence
 convertStringToTokens str = V.fromList (map convertCharToBFSymbol str)
   
-asd :: BFSequence -> BFSequence -> BFSequence
-asd a b = a
+dummy :: BFSequence -> BFSequence -> BFSequence
+dummy a b = a
   
 parseProgram :: String -> BFEnv
 parseProgram str
-  | str !! 0 == ':' =  M.unionWith (asd) (M.fromList [(str !! 1, convertStringToTokens (take (findSemiColon (drop 2 str) 0) (drop 2 str)))]) (parseProgram (drop (findSemiColon (drop 2 str) 3) str))
+  | str !! 0 == ':' =  M.unionWith (dummy) (M.fromList [(str !! 1, convertStringToTokens (take (findSemiColon (drop 2 str) 0) (drop 2 str)))]) (parseProgram (drop (findSemiColon (drop 2 str) 3) str))
   | otherwise = M.fromList [(sq0, convertStringToTokens str)]
 
 findSemiColon :: String -> Int -> Int
@@ -99,9 +99,39 @@ test_parseProgram =
   , parseProgram ":A-;:B+;AB+" == M.fromList [(sq0, V.fromList [SeqId 'A', SeqId 'B', Inc]), ('A', V.fromList [Dec]), ('B', V.fromList [Inc])]
   ]  
 
+matchingBracket :: BFSequence -> Int -> Int
+matchingBracket seq n
+  | seq V.! n == BrktOpen = findCloser (drop (n+1) (V.toList(seq))) 0 (n+1)
+  | seq V.! n == BrktClose = findOpener (take ((length seq)-n) (V.toList(seq))) 0 1
+
+findCloser :: [BFSymbol] -> Int -> Int -> Int
+findCloser a n i
+  | head a == BrktClose && n == 0 = i
+  | head a == BrktClose = findCloser (drop 1 a) (n-1) (i+1)
+  | head a == BrktOpen = findCloser (drop 1 a) (n+1) (i+1)
+  | otherwise = findCloser (drop 1 a) n (i+1)
+
+findOpener :: [BFSymbol] -> Int -> Int -> Int
+findOpener a b c = 1000
+ 
+test_matchingBracket = testBrkt sq1 pairs1 ++ testBrkt sq2 pairs2
+  where
+    testBrkt sq pairs = map (\(s, e) -> matchingBracket (mkSq sq) s == e) pairs
+    mkSq   = V.fromList . map (\c -> case c of '(' -> BrktOpen; ')' -> BrktClose; _ -> Inc)
+    sq1    = "(a)(b)"
+    pairs1 = [(0, 2), (3, 5)]
+    sq2    = "((())()())"
+    pairs2 = zip [0..9] [9, 4, 3, 2, 1, 6, 5, 8, 7, 0]
+  
 main = do
   print test_BFMem_Tape
   print test_parseProgram
+  print (matchingBracket (V.fromList [BrktOpen, BrktOpen, BrktOpen, BrktClose, BrktClose, BrktOpen, BrktClose, BrktOpen, BrktClose, BrktClose]) 0)
+  print (matchingBracket (V.fromList [BrktOpen, BrktOpen, BrktOpen, BrktClose, BrktClose, BrktOpen, BrktClose, BrktOpen, BrktClose, BrktClose]) 1)
+  print (matchingBracket (V.fromList [BrktOpen, BrktOpen, BrktOpen, BrktClose, BrktClose, BrktOpen, BrktClose, BrktOpen, BrktClose, BrktClose]) 2)
+  print (matchingBracket (V.fromList [BrktOpen, BrktOpen, BrktOpen, BrktClose, BrktClose, BrktOpen, BrktClose, BrktOpen, BrktClose, BrktClose]) 5)
+  print (matchingBracket (V.fromList [BrktOpen, BrktOpen, BrktOpen, BrktClose, BrktClose, BrktOpen, BrktClose, BrktOpen, BrktClose, BrktClose]) 7)
+  --print test_matchingBracket
   getLine
   
   
