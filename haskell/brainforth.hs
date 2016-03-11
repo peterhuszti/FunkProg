@@ -77,14 +77,21 @@ convertCharToBFSymbol c
   | c == ';' = EndSeq
   | otherwise = SeqId c
 
-parseProgram :: String -> BFEnv
-parseProgram str = M.empty
-
--- String = [Char]
--- vegigmappelek a listan a konvert fuggvennyel
--- ebbol az eredmeny listabol csinalok vektort
-
+convertStringToTokens :: String -> BFSequence
+convertStringToTokens str = V.fromList (map convertCharToBFSymbol str)
   
+asd :: BFSequence -> BFSequence -> BFSequence
+asd a b = a
+  
+parseProgram :: String -> BFEnv
+parseProgram str
+  | str !! 0 == ':' =  M.unionWith (asd) (M.fromList [(str !! 1, convertStringToTokens (take (findSemiColon (drop 2 str) 0) (drop 2 str)))]) (parseProgram (drop (findSemiColon (drop 2 str) 3) str))
+  | otherwise = M.fromList [(sq0, convertStringToTokens str)]
+
+findSemiColon :: String -> Int -> Int
+findSemiColon str n
+  | str !! 0 == ';' = n
+  | otherwise = findSemiColon (drop 1 str) n+1
   
 test_parseProgram =
   [ parseProgram "+-<>[],."    == M.fromList [(sq0, V.fromList [Inc, Dec, MemLeft, MemRight, BrktOpen, BrktClose, In, Out])]
@@ -95,6 +102,7 @@ test_parseProgram =
 main = do
   print test_BFMem_Tape
   print test_parseProgram
+  getLine
   
   
   
