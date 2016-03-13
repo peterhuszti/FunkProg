@@ -102,7 +102,7 @@ test_parseProgram =
 matchingBracket :: BFSequence -> Int -> Int
 matchingBracket seq n
   | seq V.! n == BrktOpen = findCloser (drop (n+1) (V.toList(seq))) 0 (n+1)
-  | seq V.! n == BrktClose = findOpener (take ((length seq)-n) (V.toList(seq))) 0 1
+  | seq V.! n == BrktClose = findOpener (take n (V.toList(seq))) 0 (n-1)
 
 findCloser :: [BFSymbol] -> Int -> Int -> Int
 findCloser a n i
@@ -112,7 +112,12 @@ findCloser a n i
   | otherwise = findCloser (drop 1 a) n (i+1)
 
 findOpener :: [BFSymbol] -> Int -> Int -> Int
-findOpener a b c = 1000
+findOpener a n i
+  | last a == BrktOpen && n == 0 = i
+  | last a == BrktOpen = findOpener (init a) (n-1) (i-1)
+  | last a == BrktClose = findOpener (init a) (n+1) (i-1)
+  | otherwise = findOpener (init a) n (i-1)
+  
  
 test_matchingBracket = testBrkt sq1 pairs1 ++ testBrkt sq2 pairs2
   where
@@ -126,12 +131,7 @@ test_matchingBracket = testBrkt sq1 pairs1 ++ testBrkt sq2 pairs2
 main = do
   print test_BFMem_Tape
   print test_parseProgram
-  print (matchingBracket (V.fromList [BrktOpen, BrktOpen, BrktOpen, BrktClose, BrktClose, BrktOpen, BrktClose, BrktOpen, BrktClose, BrktClose]) 0)
-  print (matchingBracket (V.fromList [BrktOpen, BrktOpen, BrktOpen, BrktClose, BrktClose, BrktOpen, BrktClose, BrktOpen, BrktClose, BrktClose]) 1)
-  print (matchingBracket (V.fromList [BrktOpen, BrktOpen, BrktOpen, BrktClose, BrktClose, BrktOpen, BrktClose, BrktOpen, BrktClose, BrktClose]) 2)
-  print (matchingBracket (V.fromList [BrktOpen, BrktOpen, BrktOpen, BrktClose, BrktClose, BrktOpen, BrktClose, BrktOpen, BrktClose, BrktClose]) 5)
-  print (matchingBracket (V.fromList [BrktOpen, BrktOpen, BrktOpen, BrktClose, BrktClose, BrktOpen, BrktClose, BrktOpen, BrktClose, BrktClose]) 7)
-  --print test_matchingBracket
+  print test_matchingBracket
   getLine
   
   
