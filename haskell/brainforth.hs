@@ -5,6 +5,7 @@ import Data.Vector (Vector)
 import qualified Data.Vector as V
 import Data.Map (Map)
 import qualified Data.Map as M
+import Debug.Trace(trace)
 
 data Tape = T
   { tVec :: Vector Int
@@ -30,9 +31,9 @@ instance BFMem Tape where
   isNull (T {tVec = v, tIx = _}) = False
   getVal (T {tVec = v, tIx = i}) = v V.! i
   putVal (T {tVec = v, tIx = i}) x = (T {tVec = v V.// [(i, x)], tIx = i})
-  memLeft (T {tVec = v, tIx = 0}) = (T {tVec = v, tIx = (length v) - 1})
-  memLeft (T {tVec = v, tIx = i}) = (T {tVec = v, tIx = i - 1})
-  memRight (T {tVec = v, tIx = i})
+  memRight (T {tVec = v, tIx = 0}) = (T {tVec = v, tIx = (length v) - 1})
+  memRight (T {tVec = v, tIx = i}) = (T {tVec = v, tIx = i - 1})
+  memLeft (T {tVec = v, tIx = i})
     | i == (length v) - 1 = (T {tVec = v, tIx = 0})
     | otherwise = (T {tVec = v, tIx = i + 1})
   
@@ -45,10 +46,10 @@ test_BFMem_Tape =
   , getVal   t { tIx = 3 }      ==  3
   , putVal   t             451  ==  t { tVec = V.fromList [451, 1, 2, 3] }
   , putVal   t { tIx = 3 } 451  ==  T { tVec = V.fromList [0, 1, 2, 451], tIx = 3 }
-  , memRight  t                 ==  t { tIx = 1 }
-  , memRight  t { tIx = 3 }     ==  t { tIx = 0 }
-  , memLeft t { tIx = 3 }       ==  t { tIx = 2 }
-  , memLeft t                   ==  t { tIx = 3 }
+  , memLeft  t                  ==  t { tIx = 1 }
+  , memLeft  t { tIx = 3 }      ==  t { tIx = 0 }
+  , memRight t { tIx = 3 }      ==  t { tIx = 2 }
+  , memRight t                  ==  t { tIx = 3 }
   ]
   where t = T { tVec = V.fromList [0, 1, 2, 3], tIx = 0 }
   
@@ -141,7 +142,7 @@ pop :: BFState -> BFState
 pop S {sCallStk = stack, sMem = m, sIn = i, sOut = o} = S {sCallStk = tail stack, sMem = m, sIn = i, sOut = o}
 
 push :: Char -> BFState -> BFState
-push x S {sCallStk = stack, sMem = m, sIn = i, sOut = o} = S {sCallStk = (stack ++ [(0,x)]), sMem = m, sIn = i, sOut = o}
+push x S {sCallStk = stack, sMem = m, sIn = i, sOut = o} = S {sCallStk = ([(0,x)] ++ stack), sMem = m, sIn = i, sOut = o}
   
 getCommand :: BFEnv -> Char -> Int -> BFSymbol
 getCommand env seqID index = (fromJust (M.lookup seqID env)) V.! index
@@ -158,7 +159,7 @@ getSeqId :: BFSymbol -> Char
 getSeqId (SeqId c) = c
 
 stepTop :: BFState -> BFState
-stepTop S {sCallStk = stack@[(index,seqID)], sMem = m, sIn = i, sOut = o} = S {sCallStk = [((index+1),seqID)], sMem = m, sIn = i, sOut = o}
+stepTop S {sCallStk = (index,seqID):xs, sMem = m, sIn = i, sOut = o} = S {sCallStk = ((index+1),seqID):xs, sMem = m, sIn = i, sOut = o}
 
 memControl :: BFSymbol -> BFState -> BFState
 memControl command (S s m i o)
@@ -168,25 +169,23 @@ memControl command (S s m i o)
     | command == MemRight = ( S s (memRight m) i o)
     | command == In = ( S s (putVal m (head i)) (tail i) o)
     | command == Out = ( S s m i ((getVal m):o))
-    | otherwise = (S s m i o)
+    | otherwise =  (S s m i o)
 
 isLastCommand :: BFSequence -> Int -> Bool
 isLastCommand s index
-  | (length s) == (index + 1) = True
+  | (length s) == index = True
   | otherwise = False
 
 getNewState :: BFEnv -> BFState -> BFState
-getNewState env oldState@(S (stack@[(index,seqID)]) tape input output)
+getNewState env oldState@(S {sCallStk = ((index,seqID):xs), sMem = tape, sIn = input, sOut = output})
+    | (isLastCommand (fromJust (M.lookup seqID env)) index) = pop oldState
     | command == BrktOpen && (getVal tape) == 0 = stepTopToN ((matchingBracket (fromJust (M.lookup seqID env)) index)+1) oldState
-    | command == BrktOpen = oldState
+    | command == BrktOpen = (S [((index+1),seqID)] tape input output)
     | command == BrktClose = stepTopToN (matchingBracket (fromJust (M.lookup seqID env)) index) oldState
-    | isSeqId command && (isLastCommand (fromJust (M.lookup seqID env)) index) = push (getSeqId command) (pop oldState) --ha az utolso volt, leveszem a stackrol es felrakom az ujat
-    | isSeqId command = push (getSeqId command) (stepTop oldState)  -- ha nem uccso volt csak leptetem az alsot es felteszem az ujat
-  --  | (isLastCommand (fromJust (M.lookup seqID env)) index) = pop (memControl command oldState) --del?
+    | isSeqId command = push (getSeqId command) (stepTop oldState)
     | otherwise = stepTop (memControl command oldState)
     where
         command = getCommand env seqID index
-getNewState _ s = s
 
 step :: ReaderT BFEnv (State BFState) ()
 step = ReaderT ( \e -> state (\oldState -> ((),getNewState e oldState)))
@@ -213,12 +212,32 @@ test_step =
     env2 = M.fromList [(sq0, V.fromList [Dec, SeqId 'A']), ('A', V.fromList [Inc])]
     st2  = S {sCallStk = [], sMem = newTape 32, sIn = [], sOut = []}
 
+runProgram :: String -> [Int] -> [Int]
+runProgram program input = undefined
+
+test_runProgram =
+  [ runProgram sqSimple    []           == [3, 4, 5, 4, 3]
+  , runProgram sqLoop      []           == [4, 3, 2, 1, 0]
+  , runProgram sqInput     [69, 418]    == [69, 420]
+  , runProgram sqMovePtr   [1, 2, 3]    == [3, 2, 1]
+  , runProgram sqSimpleSq  []           == [0, 2]
+  , runProgram sqAddThree  [1, 10, 100] == [111]
+  ]
+  where
+    sqSimple    = "+++.+.+.-.-."
+    sqLoop      = "++++[.-]."
+    sqInput     = ",.,++."
+    sqMovePtr   = ",>,>,.<.<."
+    sqSimpleSq  = ":A++;.A."
+    sqAddThree  = ":A>[-<+>]<;,>,>,<A<A."
+
 main = do
   print test_BFMem_Tape
   print test_parseProgram
   print test_matchingBracket
   print test_matchingBracket
   print test_step
+  print test_runProgram
   getLine
   
   
