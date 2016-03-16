@@ -212,24 +212,29 @@ test_step =
     env2 = M.fromList [(sq0, V.fromList [Dec, SeqId 'A']), ('A', V.fromList [Inc])]
     st2  = S {sCallStk = [], sMem = newTape 32, sIn = [], sOut = []}
 
-runProgram :: String -> [Int] -> [Int]
-runProgram program input = undefined
+oneStep :: BFState -> BFEnv -> [Int] -> BFState
+oneStep state env input = execState (runReaderT step env) state
 
-test_runProgram =
-  [ runProgram sqSimple    []           == [3, 4, 5, 4, 3]
-  , runProgram sqLoop      []           == [4, 3, 2, 1, 0]
-  , runProgram sqInput     [69, 418]    == [69, 420]
-  , runProgram sqMovePtr   [1, 2, 3]    == [3, 2, 1]
-  , runProgram sqSimpleSq  []           == [0, 2]
-  , runProgram sqAddThree  [1, 10, 100] == [111]
-  ]
+runProgram :: String -> [Int] -> BFState
+runProgram program input = oneStep startState (parseProgram program) input
   where
-    sqSimple    = "+++.+.+.-.-."
-    sqLoop      = "++++[.-]."
-    sqInput     = ",.,++."
-    sqMovePtr   = ",>,>,.<.<."
-    sqSimpleSq  = ":A++;.A."
-    sqAddThree  = ":A>[-<+>]<;,>,>,<A<A."
+    startState = S {sCallStk = [(0, sq0)], sMem = newTape 32, sIn = input, sOut = []}
+
+-- test_runProgram =
+  -- [ runProgram sqSimple    []           == [3, 4, 5, 4, 3]
+  -- , runProgram sqLoop      []           == [4, 3, 2, 1, 0]
+  -- , runProgram sqInput     [69, 418]    == [69, 420]
+  -- , runProgram sqMovePtr   [1, 2, 3]    == [3, 2, 1]
+  -- , runProgram sqSimpleSq  []           == [0, 2]
+  -- , runProgram sqAddThree  [1, 10, 100] == [111]
+  -- ]
+  -- where
+    -- sqSimple    = "+++.+.+.-.-."
+    -- sqLoop      = "++++[.-]."
+    -- sqInput     = ",.,++."
+    -- sqMovePtr   = ",>,>,.<.<."
+    -- sqSimpleSq  = ":A++;.A."
+    -- sqAddThree  = ":A>[-<+>]<;,>,>,<A<A."
 
 main = do
   print test_BFMem_Tape
@@ -237,7 +242,7 @@ main = do
   print test_matchingBracket
   print test_matchingBracket
   print test_step
-  print test_runProgram
+ -- print test_runProgram
   getLine
   
   
