@@ -128,10 +128,97 @@ test_matchingBracket = testBrkt sq1 pairs1 ++ testBrkt sq2 pairs2
     sq2    = "((())()())"
     pairs2 = zip [0..9] [9, 4, 3, 2, 1, 6, 5, 8, 7, 0]
   
+type Stack = [(Int, Char)]
+  
+data BFState = S
+  { sCallStk :: Stack
+  , sMem     :: Tape
+  , sIn      :: [Int]
+  , sOut     :: [Int]
+  } deriving (Show, Eq)
+  
+pop :: BFState -> BFState
+pop S {sCallStk = stack, sMem = m, sIn = i, sOut = o} = S {sCallStk = tail stack, sMem = m, sIn = i, sOut = o}
+
+push :: Char -> BFState -> BFState
+push x S {sCallStk = stack, sMem = m, sIn = i, sOut = o} = S {sCallStk = (stack ++ [(0,x)]), sMem = m, sIn = i, sOut = o}
+  
+getCommand :: BFEnv -> Char -> Int -> BFSymbol
+getCommand env seqID index = (fromJust (M.lookup seqID env)) V.! index
+
+stepTopToN :: Int -> BFState -> BFState
+stepTopToN n S {sCallStk = stack@[(index,seqID)], sMem = m, sIn = i, sOut = o} = S {sCallStk = [(n,seqID)], sMem = m, sIn = i, sOut = o}
+
+isSeqId :: BFSymbol -> Bool
+isSeqId s
+  | s == Inc || s == Dec || s == MemLeft || s == MemRight || s == BrktOpen || s == BrktClose || s == In || s == Out || s == StartSeq || s == EndSeq = False
+  | otherwise = True
+
+getSeqId :: BFSymbol -> Char
+getSeqId (SeqId c) = c
+
+stepTop :: BFState -> BFState
+stepTop S {sCallStk = stack@[(index,seqID)], sMem = m, sIn = i, sOut = o} = S {sCallStk = [((index+1),seqID)], sMem = m, sIn = i, sOut = o}
+
+memControl :: BFSymbol -> BFState -> BFState
+memControl command (S s m i o)
+    | command == Inc = ( S s (incVal m) i o)
+    | command == Dec = ( S s (decVal m) i o)
+    | command == MemLeft = ( S s (memLeft m) i o)
+    | command == MemRight = ( S s (memRight m) i o)
+    | command == In = ( S s (putVal m (head i)) (tail i) o)
+    | command == Out = ( S s m i ((getVal m):o))
+    | otherwise = (S s m i o)
+
+isLastCommand :: BFSequence -> Int -> Bool
+isLastCommand s index
+  | (length s) == (index + 1) = True
+  | otherwise = False
+
+getNewState :: BFEnv -> BFState -> BFState
+getNewState env oldState@(S (stack@[(index,seqID)]) tape input output)
+    | command == BrktOpen && (getVal tape) == 0 = stepTopToN ((matchingBracket (fromJust (M.lookup seqID env)) index)+1) oldState
+    | command == BrktOpen = oldState
+    | command == BrktClose = stepTopToN (matchingBracket (fromJust (M.lookup seqID env)) index) oldState
+    | isSeqId command && (isLastCommand (fromJust (M.lookup seqID env)) index) = push (getSeqId command) (pop oldState) --ha az utolso volt, leveszem a stackrol es felrakom az ujat
+    | isSeqId command = push (getSeqId command) (stepTop oldState)  -- ha nem uccso volt csak leptetem az alsot es felteszem az ujat
+  --  | (isLastCommand (fromJust (M.lookup seqID env)) index) = pop (memControl command oldState) --del?
+    | otherwise = stepTop (memControl command oldState)
+    where
+        command = getCommand env seqID index
+getNewState _ s = s
+
+step :: ReaderT BFEnv (State BFState) ()
+step = ReaderT ( \e -> state (\oldState -> ((),getNewState e oldState)))
+  
+test_step =
+  [ exec env1 st1{sCallStk = [(0, sq0)]} == st1{sCallStk = [(1, sq0)], sMem = incVal $ newTape 32}
+  , exec env1 st1{sCallStk = [(1, sq0)]} == st1{sCallStk = [(2, sq0)], sMem = memRight $ newTape 32}
+  , exec env1 st1{sCallStk = [(2, sq0)]} == st1{sCallStk = [(5, sq0)]}
+  , exec env1 st1{sCallStk = [(2, sq0)], sMem = incVal $ newTape 32} == st1{sCallStk = [(3, sq0)], sMem = incVal $ newTape 32}
+  , exec env1 st1{sCallStk = [(4, sq0)]} == st1{sCallStk = [(2, sq0)]}
+  , exec env1 st1{sCallStk = [(5, sq0)]} == st1{sCallStk = [(6, sq0)], sMem = putVal (newTape 32) 43, sIn = []}
+  , exec env1 st1{sCallStk = [(6, sq0)]} == st1{sCallStk = [(7, sq0)], sOut = [0]}
+
+  , exec env2 st2{sCallStk = [(1, sq0)]} == st2{sCallStk = [(0, 'A'), (2, sq0)]}
+  , exec env2 st2{sCallStk = [(0, 'A'), (2, sq0)]} == st2{sCallStk = [(1, 'A'), (2, sq0)], sMem = incVal $ newTape 32}
+  , exec env2 st2{sCallStk = [(1, 'A'), (2, sq0)]} == st2{sCallStk = [(2, sq0)]}
+  ]
+  where
+    exec env st = execState (runReaderT step env) st
+
+    env1 = M.fromList [(sq0, V.fromList [Inc, MemRight, BrktOpen, Inc, BrktClose, In, Out])]
+    st1  = S {sCallStk = [], sMem = newTape 32, sIn = [43], sOut = []}
+
+    env2 = M.fromList [(sq0, V.fromList [Dec, SeqId 'A']), ('A', V.fromList [Inc])]
+    st2  = S {sCallStk = [], sMem = newTape 32, sIn = [], sOut = []}
+
 main = do
   print test_BFMem_Tape
   print test_parseProgram
   print test_matchingBracket
+  print test_matchingBracket
+  print test_step
   getLine
   
   
