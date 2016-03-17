@@ -148,7 +148,7 @@ getCommand :: BFEnv -> Char -> Int -> BFSymbol
 getCommand env seqID index = (fromJust (M.lookup seqID env)) V.! index
 
 stepTopToN :: Int -> BFState -> BFState
-stepTopToN n S {sCallStk = stack@[(index,seqID)], sMem = m, sIn = i, sOut = o} = S {sCallStk = [(n,seqID)], sMem = m, sIn = i, sOut = o}
+stepTopToN n S {sCallStk = stack@((index,seqID):xs), sMem = m, sIn = i, sOut = o} = S {sCallStk = ((n,seqID):xs), sMem = m, sIn = i, sOut = o}
 
 isSeqId :: BFSymbol -> Bool
 isSeqId s
@@ -177,10 +177,10 @@ isLastCommand s index
   | otherwise = False
 
 getNewState :: BFEnv -> BFState -> BFState
-getNewState env oldState@(S {sCallStk = ((index,seqID):xs), sMem = tape, sIn = input, sOut = output})
+getNewState env oldState@(S {sCallStk = stacK@((index,seqID):xs), sMem = tape, sIn = input, sOut = output})
     | (isLastCommand (fromJust (M.lookup seqID env)) index) = pop oldState
     | command == BrktOpen && (getVal tape) == 0 = stepTopToN ((matchingBracket (fromJust (M.lookup seqID env)) index)+1) oldState
-    | command == BrktOpen = (S [((index+1),seqID)] tape input output)
+    | command == BrktOpen = (S (((index+1),seqID):xs) tape input output)
     | command == BrktClose = stepTopToN (matchingBracket (fromJust (M.lookup seqID env)) index) oldState
     | isSeqId command = push (getSeqId command) (stepTop oldState)
     | otherwise = stepTop (memControl command oldState)
@@ -212,29 +212,30 @@ test_step =
     env2 = M.fromList [(sq0, V.fromList [Dec, SeqId 'A']), ('A', V.fromList [Inc])]
     st2  = S {sCallStk = [], sMem = newTape 32, sIn = [], sOut = []}
 
-oneStep :: BFState -> BFEnv -> [Int] -> BFState
-oneStep state env input = execState (runReaderT step env) state
+oneStep :: BFState -> BFEnv -> (BFState, [Int])
+oneStep oldState@(S {sCallStk = [], sMem = tape, sIn = input, sOut = output}) _ = (oldState, output)
+oneStep oldState@(S {sCallStk = asd@((index,seqID):xs), sMem = tape, sIn = input, sOut = output}) env = oneStep (execState (runReaderT step env) oldState) env
 
-runProgram :: String -> [Int] -> BFState
-runProgram program input = oneStep startState (parseProgram program) input
+runProgram :: String -> [Int] -> [Int]
+runProgram program input = reverse $ snd (oneStep startState (parseProgram program))
   where
     startState = S {sCallStk = [(0, sq0)], sMem = newTape 32, sIn = input, sOut = []}
 
--- test_runProgram =
-  -- [ runProgram sqSimple    []           == [3, 4, 5, 4, 3]
-  -- , runProgram sqLoop      []           == [4, 3, 2, 1, 0]
-  -- , runProgram sqInput     [69, 418]    == [69, 420]
-  -- , runProgram sqMovePtr   [1, 2, 3]    == [3, 2, 1]
-  -- , runProgram sqSimpleSq  []           == [0, 2]
-  -- , runProgram sqAddThree  [1, 10, 100] == [111]
-  -- ]
-  -- where
-    -- sqSimple    = "+++.+.+.-.-."
-    -- sqLoop      = "++++[.-]."
-    -- sqInput     = ",.,++."
-    -- sqMovePtr   = ",>,>,.<.<."
-    -- sqSimpleSq  = ":A++;.A."
-    -- sqAddThree  = ":A>[-<+>]<;,>,>,<A<A."
+test_runProgram =
+   [ runProgram sqSimple    []           == [3, 4, 5, 4, 3]
+  , runProgram sqLoop      []           == [4, 3, 2, 1, 0]
+  , runProgram sqInput     [69, 418]    == [69, 420]
+  , runProgram sqMovePtr   [1, 2, 3]    == [3, 2, 1]
+  , runProgram sqSimpleSq  []           == [0, 2] 
+  , runProgram sqAddThree  [1, 10, 100] == [111]
+  ]
+  where
+    sqSimple    = "+++.+.+.-.-."
+    sqLoop      = "++++[.-]."
+    sqInput     = ",.,++."
+    sqMovePtr   = ",>,>,.<.<."
+    sqSimpleSq  = ":A++;.A."
+    sqAddThree  = ":A>[-<+>]<;,>,>,<A<A."
 
 main = do
   print test_BFMem_Tape
@@ -242,7 +243,7 @@ main = do
   print test_matchingBracket
   print test_matchingBracket
   print test_step
- -- print test_runProgram
+  print test_runProgram
   getLine
   
   
