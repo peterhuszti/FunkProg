@@ -31,10 +31,10 @@ instance BFMem Tape where
   isNull (T {tVec = v, tIx = _}) = False
   getVal (T {tVec = v, tIx = i}) = v V.! i
   putVal (T {tVec = v, tIx = i}) x = (T {tVec = v V.// [(i, x)], tIx = i})
-  memRight (T {tVec = v, tIx = 0}) = (T {tVec = v, tIx = (length v) - 1})
+  memRight (T {tVec = v, tIx = 0}) = (T {tVec = v, tIx = (V.length v) - 1})
   memRight (T {tVec = v, tIx = i}) = (T {tVec = v, tIx = i - 1})
   memLeft (T {tVec = v, tIx = i})
-    | i == (length v) - 1 = (T {tVec = v, tIx = 0})
+    | i == (V.length v) - 1 = (T {tVec = v, tIx = 0})
     | otherwise = (T {tVec = v, tIx = i + 1})
   
 test_BFMem_Tape =
@@ -173,7 +173,7 @@ memControl command (S s m i o)
 
 isLastCommand :: BFSequence -> Int -> Bool
 isLastCommand s index
-  | (length s) == index = True
+  | (V.length s) == index = True
   | otherwise = False
 
 getNewState :: BFEnv -> BFState -> BFState
@@ -222,7 +222,7 @@ runProgram program input = reverse $ snd (oneStep startState (parseProgram progr
     startState = S {sCallStk = [(0, sq0)], sMem = newTape 32, sIn = input, sOut = []}
 
 test_runProgram =
-   [ runProgram sqSimple    []           == [3, 4, 5, 4, 3]
+  [ runProgram sqSimple    []           == [3, 4, 5, 4, 3]
   , runProgram sqLoop      []           == [4, 3, 2, 1, 0]
   , runProgram sqInput     [69, 418]    == [69, 420]
   , runProgram sqMovePtr   [1, 2, 3]    == [3, 2, 1]
@@ -241,11 +241,9 @@ main = do
   print test_BFMem_Tape
   print test_parseProgram
   print test_matchingBracket
-  print test_matchingBracket
   print test_step
   print test_runProgram
   getLine
-  
   
   
   
