@@ -58,18 +58,39 @@ handleClient hdl = do
     hClose hdl
     return answer
 
-
+requestedResource :: [Text] -> Maybe Text
+requestedResource [] = Nothing
+requestedResource req = do
+    w <- Just $ Text.words (head req)
+    if length w >= 3
+    then do
+        if Text.toLower (head w) == "get"
+        then Text.stripPrefix "/" (w !! 1)
+        else Nothing
+    else Nothing
 	
-main :: IO ()
+test_requestedResource =
+  [ requestedResource [""]                      == Nothing
+  , requestedResource ["ALMA"]                  == Nothing
+  , requestedResource ["GET"]                   == Nothing
+  , requestedResource ["GET /index.html"]       == Nothing
+  , requestedResource ["ALMA /index.html alma"] == Nothing
+  , requestedResource ["GET /index.html alma"]  == Just "index.html"
+  , requestedResource ["get /index.html alma"]  == Just "index.html"
+  , requestedResource ["GET /alma.html HTTP/1.1", "Korte: very"] == Just "alma.html"
+  ]
+	
+-- main :: IO ()
+-- main = do
+    -- server <- listenOn (PortNumber 8000)
+    -- acc <- forkIO(acceptFork server handleClient)
+    -- getLine
+    -- killThread acc
+    -- sClose server
+    -- return ()
+	
 main = do
-    server <- listenOn (PortNumber 8000)
-    acc <- forkIO(acceptFork server handleClient)
-    getLine
-    killThread acc
-    sClose server
-    return ()
-	
-	
+    print test_requestedResource
 	
 	
 	
