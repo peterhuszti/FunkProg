@@ -68,7 +68,7 @@ requestedResource req = do
         then Text.stripPrefix "/" (w !! 1)
         else Nothing
     else Nothing
-	
+
 test_requestedResource =
   [ requestedResource [""]                      == Nothing
   , requestedResource ["ALMA"]                  == Nothing
@@ -79,7 +79,59 @@ test_requestedResource =
   , requestedResource ["get /index.html alma"]  == Just "index.html"
   , requestedResource ["GET /alma.html HTTP/1.1", "Korte: very"] == Just "alma.html"
   ]
-	
+
+handleRequest :: Text -> (Int, Int) -> (Int, Int)
+handleRequest "/n" (i,j) = (i,j+1)
+handleRequest "/s" (i,j) = (i,j-1)
+handleRequest "/w" (i,j) = (i-1,j)
+handleRequest "/e" (i,j) = (i+1,j)
+handleRequest _ (i,j) = (i,j)
+
+drawState :: (Int, Int) -> Text
+drawState x = addLine 1 x
+
+addLine :: Int -> (Int, Int) -> Text
+addLine 11 (xI,xJ) = Text.append (Text.append (Text.append (Text.append "(" (fromString $ show xI)) ",") (fromString $ show xJ)) ")"
+addLine j (xI,xJ) = do
+    if j == xJ
+    then Text.append (addX 1 xI) (addLine (j+1) (xI,xJ))
+    else Text.append "..........\n" (addLine (j+1) (xI,xJ))
+
+addX :: Int -> Int -> Text
+addX 11 _ = "\n"
+addX i xI = do
+    if i == xI
+    then (Text.append "X" (addX (i+1) xI))
+    else (Text.append "." (addX (i+1) xI))
+
+test_drawState :: [Bool]
+test_drawState =
+  [ drawState (-1, -1) ==
+    "..........\n\
+    \..........\n\
+    \..........\n\
+    \..........\n\
+    \..........\n\
+    \..........\n\
+    \..........\n\
+    \..........\n\
+    \..........\n\
+    \..........\n\
+    \(-1,-1)"
+  , drawState (1, 5) ==
+    "..........\n\
+    \..........\n\
+    \..........\n\
+    \..........\n\
+    \X.........\n\
+    \..........\n\
+    \..........\n\
+    \..........\n\
+    \..........\n\
+    \..........\n\
+    \(1,5)"
+  ]
+
 -- main :: IO ()
 -- main = do
     -- server <- listenOn (PortNumber 8000)
@@ -88,10 +140,10 @@ test_requestedResource =
     -- killThread acc
     -- sClose server
     -- return ()
-	
+
 main = do
     print test_requestedResource
-	
+    print test_drawState
 	
 	
 	
