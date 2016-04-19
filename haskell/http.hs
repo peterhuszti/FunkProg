@@ -19,6 +19,8 @@ import System.IO
 import Test.QuickCheck
 import Test.QuickCheck.Test (isSuccess)
 
+import Debug.Trace (trace, traceIO)
+
 hGetLines :: Handle -> IO [Text]
 hGetLines hdl = do
   line <- Text.hGetLine hdl
@@ -44,19 +46,22 @@ response str = Text.unlines
   , str
   ]
 
-acceptFork :: Socket -> (Handle -> IO ()) -> IO ()
-acceptFork socket action = do
+acceptFork :: Socket -> MVar (Int, Int) -> (MVar (Int, Int) -> Handle -> IO ()) -> IO ()
+acceptFork socket startPos action = do
     hdl <- acceptHandle socket
-    forkIO(action hdl)
-    return ()
+    forkIO(action startPos hdl)
+    acceptFork socket startPos action
 
-handleClient :: Handle -> IO ()
-handleClient hdl = do
+handleClient :: MVar (Int, Int) -> Handle -> IO ()
+handleClient mvar hdl = do
     lines <- hGetLines hdl
-    answer <- Text.hPutStr hdl (response "foobar")
+    pos <- takeMVar mvar
+    putMVar mvar (handleRequest (fromJust $ requestedResource lines) pos)
+    newPos <- takeMVar mvar
+    putMVar mvar newPos
+    Text.hPutStr hdl (response (drawState newPos))
     hFlush hdl
     hClose hdl
-    return answer
 
 requestedResource :: [Text] -> Maybe Text
 requestedResource [] = Nothing
@@ -81,10 +86,10 @@ test_requestedResource =
   ]
 
 handleRequest :: Text -> (Int, Int) -> (Int, Int)
-handleRequest "/n" (i,j) = (i,j+1)
-handleRequest "/s" (i,j) = (i,j-1)
-handleRequest "/w" (i,j) = (i-1,j)
-handleRequest "/e" (i,j) = (i+1,j)
+handleRequest "n" (i,j) = (i,j-1)
+handleRequest "s" (i,j) = (i,j+1)
+handleRequest "w" (i,j) = (i-1,j)
+handleRequest "e" (i,j) = (i+1,j)
 handleRequest _ (i,j) = (i,j)
 
 drawState :: (Int, Int) -> Text
@@ -132,30 +137,16 @@ test_drawState =
     \(1,5)"
   ]
 
--- main :: IO ()
--- main = do
-    -- server <- listenOn (PortNumber 8000)
-    -- acc <- forkIO(acceptFork server handleClient)
-    -- getLine
-    -- killThread acc
-    -- sClose server
-    -- return ()
-
+main :: IO ()
 main = do
-    print test_requestedResource
-    print test_drawState
-	
-	
-	
-	
-	
-	
-	
-	
-	
-	
-	
-	
-	
-	
-	
+    server <- listenOn (PortNumber 8000)
+    startPos <- newMVar (5,5)
+    acc <- forkIO(acceptFork server startPos handleClient)
+    getLine
+    killThread acc
+    sClose server
+    return ()
+
+-- main = do
+    -- print test_requestedResource
+    -- print test_drawState
