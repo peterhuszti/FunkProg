@@ -50,7 +50,39 @@ acceptFork socket action = do
     forkIO(action hdl)
     return ()
 
+handleClient :: Handle -> IO ()
+handleClient hdl = do
+    lines <- hGetLines hdl
+    answer <- Text.hPutStr hdl (response "foobar")
+    hFlush hdl
+    hClose hdl
+    return answer
+
 
 	
+main :: IO ()
 main = do
+    server <- listenOn (PortNumber 8000)
+    acc <- forkIO(acceptFork server handleClient)
     getLine
+    killThread acc
+    sClose server
+    return ()
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
