@@ -27,11 +27,11 @@ data Matrix = M
 
 newMatrix :: Int -> Matrix
 newMatrix n = (M
-  { mDat = (Seq.replicate n 0)
+  { mDat = (Seq.replicate (n*n) 0)
   , mSize = n
   , mIx = (\(a,b) -> if a>n || b>n then Nothing
-                     else Just (Seq.index mDat (a+n*b))
-		  )
+                     else Just (Seq.index mDat ((n-1)*a+b))
+          )
   })
   
 test_newMatrix :: [Bool]
