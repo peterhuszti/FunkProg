@@ -19,6 +19,8 @@ import System.IO
 import Test.QuickCheck
 import Test.QuickCheck.Test (isSuccess)
 
+import Debug.Trace (trace, traceIO)
+
 data Matrix = M
   { mDat :: Seq Integer
   , mSize :: Int
@@ -73,10 +75,47 @@ test_getMatrix =
   , getMatrix (1, 2) m2 == Just 1
   ]
   
+addMatrix :: Matrix -> Matrix -> Maybe Matrix
+addMatrix a b = do
+    if mSize a /= mSize b
+    then Nothing
+    else Just (M {mDat = sumSeq (mDat a) (mDat b) (2*(mSize a)-1), mSize = mSize a, mIx = mIx a})
+
+sumSeq :: Seq Integer -> Seq Integer -> Int -> Seq Integer
+sumSeq s t (-1) = s
+sumSeq s t i = sumSeq (Seq.update i ((Seq.index s i)+(Seq.index t i)) s) t (i-1)
+
+test_addMatrix :: [Bool]
+test_addMatrix =
+  let ma = newMatrix 3
+      mb = setMatrix (1,2) 1 $ setMatrix (1,1) 1 $ newMatrix 2
+      mc = setMatrix (2,1) 1 $ setMatrix (1,1) 1 $ newMatrix 2	  
+  in  [ isNothing $ addMatrix ma mb
+      , (mDat <$> addMatrix mb mc) == Just (Seq.fromList [2, 1, 1, 0])
+      ]
+
 main = do
     print test_newMatrix
     print test_setMatrix
     print test_getMatrix
+    print test_addMatrix
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
 	
 	
 	
