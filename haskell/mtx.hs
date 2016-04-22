@@ -100,7 +100,7 @@ test_addMatrix =
 mulMatrix :: Matrix -> Matrix -> Maybe Matrix
 mulMatrix a b = do
     if (mSize a) == (mSize b) 
-    then Just $ makeSeqMtxFromLists $ mmult (splitIntoListsByRow (mDat a) (mSize a) (mSize a)) (splitIntoListsByRow (mDat b) (mSize b) (mSize b))
+    then Just (makeSeqMtxFromLists (mmult (splitIntoListsByRow (mDat a) (mSize a) (mSize a)) (splitIntoListsByRow (mDat b) (mSize b) (mSize b)))) `using` parTraversable rseq
     else Nothing
 
 splitIntoListsByRow :: Seq Integer -> Int -> Int -> [[Integer]]
@@ -112,7 +112,7 @@ makeSeqMtxFromLists a = M {mDat = Seq.fromList [y | x <- a, y <- x], mSize = (le
     where m = newMatrix (length a)
 
 mmult :: Num a => [[a]] -> [[a]] -> [[a]] 
-mmult a b = [[ sum $ zipWith (*) ar bc | bc <- (transpose b)] | ar <- a ] `using` parTraversable rseq
+mmult a b = [[ sum $ zipWith (*) ar bc | bc <- (transpose b)] | ar <- a ]
 
 test_mulMatrix :: [Bool]
 test_mulMatrix =

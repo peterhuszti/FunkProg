@@ -30,28 +30,41 @@ drop2 []        = []
 drop2 [_]       = []
 drop2 (_:_:xs)  = xs
 
-prop_drop2 :: Eq a => [a] -> Bool
-prop_drop2 list = (drop2 list) == (drop 2 list)
+prop_drop2 :: [a] -> Bool
+prop_drop2 [] = True
+prop_drop2 a@[_] = 
+    if length a == (length $ drop2 a) + 1
+    then True
+    else False
+prop_drop2 a =
+    if length a == (length $ drop2 a) + 2
+    then True
+    else False
 
 newtype ZippList a = ZPL ([a], [a])
     deriving (Show, Eq)
 
 instance Arbitrary a => Arbitrary (ZippList a) where
     arbitrary = do
-        firstList <- sequence [arbitrary | _ <- [-100..100]]
-        secondList <- sequence [arbitrary | _ <- [-100..100]]
+        firstList <- arbitrary
+        secondList <- arbitrary
         return $ ZPL (firstList, secondList)
 
 left :: ZippList a -> ZippList a
 left (ZPL (x : xs, ys)) = ZPL (xs, x : ys)
 left zl = zl
 
-prop_left :: Eq a => ZippList a -> Bool
-prop_left zl@(ZPL(a,b)) = (ZPL(tail a, (head a) : b)) == left zl
+prop_left :: ZippList a -> Bool
+prop_left (ZPL ([],_)) = True
+prop_left z@(ZPL (a,b)) = 
+    let y@(ZPL (c,d)) = left z in
+    if length c == (length a) - 1 && length d == (length b) + 1
+    then True
+    else False
 
 main = do
     -- quickCheck prop_removeNegative
-    -- quickCheck (prop_drop2 :: [Int] -> Bool)
+    quickCheck (prop_drop2 :: [Int] -> Bool)
     -- sample (arbitrary :: Gen (ZippList Int))
-    quickCheck (prop_left :: ZippList Int -> Bool)
+    -- quickCheck (prop_left :: ZippList Int -> Bool)
     
